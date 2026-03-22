@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LU | Decision Tree Masterclass</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&family=Montserrat:wght@800;900&display=swap');
+        
+        :root {
+            --lu-gold: #B5A26C;
+            --obsidian: #020617;
+            --charcoal: #0f172a;
+            --neon-blue: #3b82f6;
+            --class-0-blue: #3b82f6;  /* Changed to Blue for Class 0 */
+            --class-1-green: #10b981; /* Green for Class 1 */
+            --class-2-red: #ef4444;   /* Red for Class 2 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--obsidian);
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .font-brand { font-family: 'Montserrat', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+        }
+
+        .slider-custom {
+            accent-color: var(--lu-gold);
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: left;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+        .metric-card:hover { 
+            transform: translateY(-4px); 
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .click-hint {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 10px;
+            color: #64748b;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .metric-card:hover .click-hint { opacity: 1; }
+
+        /* Custom Toggles */
+        .toggle-btn {
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            border-radius: 8px;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .toggle-btn.active {
+            background: var(--neon-blue);
+            color: white;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+        .toggle-btn:not(.active) {
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        /* Hover Tooltips */
+        .custom-tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--lu-gold);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            pointer-events: none;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            line-height: 1.6;
+            min-width: 200px;
+        }
+
+        /* Scrollbar for Simulation Log */
+        #sim-log::-webkit-scrollbar { width: 6px; }
+        #sim-log::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        #sim-log::-webkit-scrollbar-track { background: transparent; }
+
+        /* D3 Styles */
+        .axis-label { font-size: 10px; font-weight: 900; fill: #64748b; text-transform: uppercase; letter-spacing: 0.1em; }
+        .axis-label path, .axis-label line { stroke: #334155; }
+        .axis-label text { fill: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; }
+        
+        .data-point { stroke: white; stroke-width: 1.5; transition: filter 0.2s; cursor: pointer; }
+        .data-point:hover { filter: drop-shadow(0 0 10px rgba(255,255,255,0.8)); z-index: 50; }
+        
+        /* Class Colors matching Lesson 12 */
+        .class-0 { fill: var(--class-0-blue); }    
+        .class-1 { fill: var(--class-1-green); }   
+        .class-2 { fill: var(--class-2-red); }     
+        
+        .split-line { stroke: var(--lu-gold); stroke-width: 2; stroke-dasharray: 4,4; }
+        .region-rect { transition: fill 0.3s, opacity 0.3s; cursor: crosshair; }
+        .region-rect:hover { opacity: 0.4; }
+
+        /* Tree Diagram Styles */
+        #tree-plot svg { cursor: grab; }
+        #tree-plot svg:active { cursor: grabbing; }
+        .node-rect { fill: #1e293b; stroke: #334155; stroke-width: 2; rx: 6; ry: 6; }
+        .node-text { fill: white; font-size: 10px; font-weight: bold; font-family: 'JetBrains Mono', monospace; text-anchor: middle; pointer-events: none;}
+        .node-subtext { fill: #94a3b8; font-size: 8px; text-anchor: middle; pointer-events: none;}
+        .link { fill: none; stroke: #334155; stroke-width: 2; }
+    </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen">
+
+    <!-- Hover Tooltips -->
+    <div id="region-tooltip" class="custom-tooltip"></div>
+    <div id="point-tooltip" class="custom-tooltip"></div>
+
+    <!-- Educational Modal -->
+    <div id="metric-modal" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/70 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-lg w-full shadow-2xl transform scale-95 transition-transform duration-300" id="modal-content-box">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 id="modal-title" class="text-2xl font-black text-white uppercase tracking-wider">Metric</h2>
+                    <p class="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">Algorithm Deep Dive</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6 text-sm text-slate-300">
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                    <strong class="flex items-center gap-2 text-blue-400 uppercase text-[10px] tracking-widest mb-2">
+                        <i data-lucide="book-open" class="w-3 h-3"></i> Concept
+                    </strong>
+                    <p id="modal-def" class="text-slate-200 leading-relaxed"></p>
+                </div>
+                
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                    <strong class="flex items-center gap-2 text-purple-400 uppercase text-[10px] tracking-widest mb-2">
+                        <i data-lucide="function-square" class="w-3 h-3"></i> Mathematical Formula
+                    </strong>
+                    <div id="modal-form" class="font-mono text-center text-white font-bold bg-black/40 py-3 px-2 rounded-lg text-sm break-all flex items-center justify-center min-h-[50px]"></div>
+                </div>
+
+                <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/20">
+                    <strong class="flex items-center gap-2 text-[--lu-gold] uppercase text-[10px] tracking-widest mb-2">
+                        <i data-lucide="lightbulb" class="w-3 h-3"></i> How to Interpret
+                    </strong>
+                    <p id="modal-interp" class="text-blue-100 italic text-xs leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-[1800px] w-full mx-auto flex flex-col h-full relative z-10">
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-white/5 pb-4 flex-shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">
+                    <i data-lucide="git-merge" class="text-blue-400 w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="font-brand text-[10px] tracking-[0.4em] text-[--lu-gold] uppercase block mb-1">DSCI 356000 | Lindenwood University</span>
+                    <h1 class="text-2xl md:text-3xl font-brand font-black text-white tracking-tighter uppercase leading-none">
+                        Decision Tree <span class="text-transparent bg-clip-text bg-gradient-to-r from-[--lu-gold] to-white/40">Classifier</span>
+                    </h1>
+                    <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Instructor: Mr. Kalauni • Lesson 12 Masterclass</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl border border-slate-800 flex-wrap justify-end">
+                <button onclick="generateData('grid')" id="btn-data-grid" class="px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-slate-400 hover:bg-white/5 border border-purple-500/30 text-purple-400">
+                    Grid Data (Lesson 12)
+                </button>
+                <button onclick="generateData('iris')" id="btn-data-iris" class="px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-slate-400 hover:bg-white/5 border border-blue-500/30 text-blue-400">
+                    Iris Dataset
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+            
+            <!-- LEFT PANEL: CONTROLS & METRICS -->
+            <aside class="lg:col-span-3 flex flex-col gap-4 overflow-y-auto pr-2">
+                <!-- Parameters Control -->
+                <div class="glass p-6 rounded-[2rem]">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                        <i data-lucide="sliders-horizontal" class="w-4 h-4 text-[--lu-gold]"></i> 1. Tree Growth Rules
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <div class="flex justify-between text-xs font-bold text-slate-300 mb-2">
+                            <span>Max Depth</span>
+                            <span id="depth-val" class="font-mono text-[--lu-gold] text-xl">1</span>
+                        </div>
+                        <input type="range" id="depth-slider" min="1" max="6" step="1" value="1" class="slider-custom">
+                        <p class="text-[9px] text-slate-500 uppercase mt-1 text-center">Controls Overfitting vs Underfitting</p>
+                    </div>
+
+                    <div class="mb-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Impurity Metric</span>
+                        <div class="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl border border-slate-800">
+                            <button onclick="setMetric('gini')" id="btn-gini" class="toggle-btn active flex-1">Gini</button>
+                            <button onclick="setMetric('entropy')" id="btn-entropy" class="toggle-btn flex-1">Entropy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Educational Live Metrics -->
+                <div class="glass p-6 rounded-[2rem] flex-1 flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <i data-lucide="book-open" class="w-4 h-4 text-[--neon-blue]"></i> 2. Core Concepts
+                        </h3>
+                    </div>
+                    
+                    <p class="text-[9px] text-slate-500 uppercase tracking-widest mb-4 text-center border-b border-slate-700/50 pb-2 animate-pulse">Click cards to reveal math</p>
+
+                    <div class="grid grid-cols-1 gap-3">
+                        
+                        <div class="metric-card group" onclick="openModal('impurity')">
+                            <span class="click-hint"><i data-lucide="zoom-in" class="w-3 h-3"></i></span>
+                            <div class="flex justify-between items-end mb-1">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">Purity Measure</div>
+                                <div class="text-sm font-black text-[--neon-blue]" id="dist-name">Gini Index</div>
+                            </div>
+                            <div class="bg-black/30 p-2 rounded-lg font-mono text-[10px] border border-white/5 text-slate-300">
+                                $gini = 1 - \sum p_i^2$
+                            </div>
+                        </div>
+
+                        <div class="metric-card group" onclick="openModal('infogain')">
+                            <span class="click-hint"><i data-lucide="zoom-in" class="w-3 h-3"></i></span>
+                            <div class="flex justify-between items-end mb-1">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">How Splits are Chosen</div>
+                                <div class="text-sm font-black text-[--emerald]">Weighted Gini (WGI)</div>
+                            </div>
+                            <div class="bg-black/30 p-2 rounded-lg font-mono text-[10px] border border-white/5 text-slate-300">
+                                Minimize Weighted Impurity of Children
+                            </div>
+                        </div>
+
+                        <div class="metric-card group" onclick="openModal('accuracy')">
+                            <span class="click-hint"><i data-lucide="zoom-in" class="w-3 h-3"></i></span>
+                            <div class="flex justify-between items-end mb-1">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">Training Performance</div>
+                                <div class="text-xl font-mono font-black text-[--lu-gold]" id="model-accuracy">0.0%</div>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                                <div id="acc-bar" class="h-full bg-[--lu-gold] transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </aside>
+
+            <!-- MIDDLE PANEL: MAIN PLOT (FEATURE SPACE) -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                <div class="glass p-6 rounded-[2rem] flex-1 relative flex flex-col">
+                    <div class="flex justify-between items-end z-10 mb-4 border-b border-slate-700/50 pb-4">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <i data-lucide="layout-grid" class="w-4 h-4 text-[--lu-gold]"></i> 3. Feature Space
+                            </h3>
+                        </div>
+                        <button onclick="runSplitSimulation()" id="btn-simulate" class="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/50 hover:bg-blue-500/30 rounded-xl flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg">
+                            <i data-lucide="git-pull-request" class="w-4 h-4"></i> Simulate Tree Growth
+                        </button>
+                    </div>
+                    
+                    <div class="w-full flex-1 relative mt-0">
+                        <div id="main-plot" class="w-full h-full absolute inset-0 bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden shadow-inner cursor-crosshair"></div>
+                        
+                        <!-- Floating Draggable Interactive Simulation Dashboard -->
+                        <div id="sim-dashboard" class="absolute top-4 left-4 bg-slate-900/95 border border-blue-500/50 rounded-2xl hidden z-50 text-white shadow-[0_10px_40px_rgba(59,130,246,0.3)] w-[320px] backdrop-blur-md flex-col max-h-[90%]">
+                            
+                            <!-- Drag Handle -->
+                            <div id="sim-drag-handle" class="cursor-move bg-blue-500/10 p-3 border-b border-blue-500/30 flex justify-between items-center rounded-t-2xl">
+                                <h4 id="sim-title" class="text-[10px] uppercase text-blue-400 font-bold tracking-widest flex items-center gap-2">
+                                    <i data-lucide="cpu" class="w-4 h-4"></i> Scanning Node
+                                </h4>
+                                <i data-lucide="move" class="w-4 h-4 text-blue-400/50"></i>
+                            </div>
+                            
+                            <div class="p-4 flex-1 flex flex-col min-h-0">
+                                
+                                <div class="font-mono text-xs space-y-2 mb-3 shrink-0 bg-black/40 p-3 rounded-lg border border-white/5">
+                                    <div class="flex justify-between items-center text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-sans">Current Test</div>
+                                    <div class="flex justify-between items-center text-sm"><span>Split Line:</span> <span id="sim-test" class="text-yellow-400 font-bold">--</span></div>
+                                    <div class="flex justify-between text-slate-300"><span>WGI:</span> <span id="sim-weighted" class="text-orange-400 font-bold">--</span></div>
+                                </div>
+                                
+                                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 shrink-0 flex justify-between">
+                                    <span>Calculation History</span>
+                                    <span id="sim-best-display" class="text-emerald-400">Min WGI: --</span>
+                                </div>
+                                <div id="sim-log" class="flex-1 overflow-y-auto bg-slate-950/80 rounded-lg border border-slate-800 p-3 space-y-2 font-mono text-[10px] text-slate-400 min-h-[160px] max-h-[200px]">
+                                    <!-- Logs appended here dynamically -->
+                                </div>
+                                
+                                <!-- Action / Progress Bar -->
+                                <div id="sim-action-area" class="mt-4 shrink-0">
+                                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                        <div id="sim-progress" class="h-full bg-blue-500 w-0 transition-all duration-150"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-3 bg-slate-900/60 rounded-2xl border border-slate-800 text-[10px] text-slate-400 leading-relaxed text-center font-bold uppercase tracking-widest text-[--lu-gold]">
+                        Hover over regions and data points to see the math!
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: TREE DIAGRAM -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <div class="glass p-6 rounded-[2rem] flex-1 relative flex flex-col">
+                    <div class="flex justify-between items-start z-10 mb-2">
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <i data-lucide="git-merge" class="w-4 h-4 text-[--lu-gold]"></i> 4. Sklearn-Style Tree Diagram
+                        </h3>
+                        <div class="text-[9px] font-mono text-slate-500 flex items-center gap-1">
+                            <i data-lucide="mouse-pointer-2" class="w-3 h-3"></i> Scroll to Zoom, Drag to Pan
+                        </div>
+                    </div>
+                    
+                    <div id="tree-plot" class="w-full flex-1 relative mt-2 bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden shadow-inner min-h-[300px]"></div>
+                    
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let dataset = [];
+        let maxDepth = 1;
+        let metric = 'gini'; 
+        let treeModel = null;
+        let editClass = 0; 
+        let currentDataType = 'grid'; 
+        let numActiveClasses = 3;
+
+        // Simulation State
+        let isSimulating = false;
+        let simQueue = [];
+        let currentSimNode = null;
+        let simulationTimer = null; 
+
+        // Dynamic Axis Limits based on dataset
+        let xLimit = {min: 0, max: 100};
+        let yLimit = {min: 0, max: 100};
+
+        // EXACTLY TO SPECIFICATIONS: 0=Blue, 1=Green, 2=Red
+        const classColors = ['#3b82f6', '#10b981', '#ef4444']; 
+        const classNames = ['Class 0 (Blue)', 'Class 1 (Green)', 'Class 2 (Red)'];
+
+        // D3 SVGs
+        let svgPlot, svgTree, simLayer;
+        let pWidth, pHeight, tWidth, tHeight;
+        let xScale, yScale;
+        let xAxisTitle, yAxisTitle;
+        
+        // D3 Elements
+        let regionsGroup, pointsGroup, linesGroup, treeGroup, treeZoom;
+
+        // --- MATH HELPERS ---
+        function getGiniCalculationString(countsObj, total) {
+            let mathStr = `1`;
+            let val = 1;
+            // Force array format [C0, C1, C2]
+            const arr = [];
+            for (let i = 0; i < numActiveClasses; i++) {
+                const count = countsObj[i] || 0;
+                arr.push(count);
+                if (count > 0) {
+                    mathStr += ` - (${count}/${total})²`;
+                    const p = count / total;
+                    val -= p * p;
+                } else {
+                    mathStr += ` - (0/${total})²`;
+                }
+            }
+            return { str: mathStr, val: val, arr: `[${arr.join(', ')}]` };
+        }
+
+        // --- MULTI-CLASS CART ENGINE ---
+        function calculateImpurity(dataSubset) {
+            if (dataSubset.length === 0) return 0;
+            const counts = {};
+            dataSubset.forEach(d => { counts[d.class] = (counts[d.class] || 0) + 1; });
+            const total = dataSubset.length;
+
+            let impurity = 0;
+            if (metric === 'gini') {
+                impurity = 1;
+                for (let c in counts) {
+                    const p = counts[c] / total;
+                    impurity -= p * p;
+                }
+            } else { // Entropy
+                for (let c in counts) {
+                    const p = counts[c] / total;
+                    if (p > 0) impurity -= p * Math.log2(p);
+                }
+            }
+            return impurity;
+        }
+
+        function findBestSplit(dataSubset) {
+            // Need at least 2 samples to split
+            if (dataSubset.length < 2) return null;
+            
+            const parentImpurity = calculateImpurity(dataSubset);
+            if (parentImpurity === 0) return null; 
+
+            let bestSplit = null;
+            let minWeightedImpurity = Infinity;
+
+            ['x', 'y'].forEach(feature => {
+                // Ensure unique values to correctly calculate midpoints
+                const sortedVals = [...new Set(dataSubset.map(d => d[feature]))].sort((a,b) => a - b);
+                for (let i = 0; i < sortedVals.length - 1; i++) {
+                    const threshold = (sortedVals[i] + sortedVals[i+1]) / 2;
+                    const leftData = [], rightData = [];
+                    
+                    dataSubset.forEach(d => {
+                        if (d[feature] <= threshold) leftData.push(d); // Standard sklearn uses <=
+                        else rightData.push(d);
+                    });
+
+                    if (leftData.length === 0 || rightData.length === 0) continue;
+
+                    const leftImpurity = calculateImpurity(leftData);
+                    const rightImpurity = calculateImpurity(rightData);
+                    const weightLeft = leftData.length / dataSubset.length;
+                    const weightRight = rightData.length / dataSubset.length;
+                    const weightedImpurity = (weightLeft * leftImpurity) + (weightRight * rightImpurity);
+
+                    if (weightedImpurity < minWeightedImpurity) {
+                        minWeightedImpurity = weightedImpurity;
+                        bestSplit = {
+                            feature, threshold, weightedImpurity: weightedImpurity,
+                            leftData, rightData, impurity: parentImpurity
+                        };
+                    }
+                }
+            });
+
+            return bestSplit;
+        }
+
+        function buildTree(dataSubset, depth, bbox) {
+            const impurity = calculateImpurity(dataSubset);
+            const counts = {};
+            dataSubset.forEach(d => { counts[d.class] = (counts[d.class] || 0) + 1; });
+            
+            let maxCount = -1, majorityClass = 0;
+            for (let i=0; i<numActiveClasses; i++) {
+                const count = counts[i] || 0;
+                if (count > maxCount) { maxCount = count; majorityClass = i; }
+            }
+            
+            const node = { depth, samples: dataSubset.length, impurity, majorityClass, counts, bbox };
+
+            // Stopping conditions
+            if (depth === maxDepth || impurity === 0 || dataSubset.length < 2) {
+                node.isLeaf = true;
+                return node;
+            }
+
+            const split = findBestSplit(dataSubset);
+            if (!split) { node.isLeaf = true; return node; }
+
+            node.isLeaf = false;
+            node.feature = split.feature;
+            node.threshold = split.threshold;
+            node.gain = node.impurity - split.weightedImpurity;
+
+            let leftBbox, rightBbox;
+            if (split.feature === 'x') {
+                leftBbox = { ...bbox, xMax: split.threshold };
+                rightBbox = { ...bbox, xMin: split.threshold };
+            } else {
+                leftBbox = { ...bbox, yMax: split.threshold };
+                rightBbox = { ...bbox, yMin: split.threshold };
+            }
+
+            node.children = [
+                buildTree(split.leftData, depth + 1, leftBbox),
+                buildTree(split.rightData, depth + 1, rightBbox)
+            ];
+
+            return node;
+        }
+
+        function extractVisuals(node) {
+            let leaves = [], lines = [];
+            function traverse(n) {
+                if (!n) return;
+                if (n.isLeaf) leaves.push(n);
+                else {
+                    if (n.feature === 'x') lines.push({ x1: n.threshold, x2: n.threshold, y1: n.bbox.yMin, y2: n.bbox.yMax });
+                    else lines.push({ x1: n.bbox.xMin, x2: n.bbox.xMax, y1: n.threshold, y2: n.threshold });
+                    if(n.children) { traverse(n.children[0]); traverse(n.children[1]); }
+                }
+            }
+            traverse(node);
+            return { leaves, lines };
+        }
+
+        function drawLeaf(dataSubset, bbox) {
+            const counts = {};
+            dataSubset.forEach(d => { counts[d.class] = (counts[d.class] || 0) + 1; });
+            let maxCount = -1, majorityClass = 0;
+            for (let c=0; c<numActiveClasses; c++) {
+                if ((counts[c] || 0) > maxCount) { maxCount = counts[c] || 0; majorityClass = c; }
+            }
+            
+            regionsGroup.append("rect")
+                .attr("x", xScale(bbox.xMin))
+                .attr("y", yScale(bbox.yMax)) // yScale is inverted, yMax is physically higher (smaller value)
+                .attr("width", Math.max(0, xScale(bbox.xMax) - xScale(bbox.xMin)))
+                .attr("height", Math.max(0, Math.abs(yScale(bbox.yMin) - yScale(bbox.yMax))))
+                .attr("fill", classColors[majorityClass])
+                .attr("opacity", 0.2);
+        }
+
+        // --- INTERACTIVE SIMULATION ENGINE ---
+        window.runSplitSimulation = function() {
+            if(dataset.length < 2 || isSimulating) return;
+            
+            // Lock UI to prevent "going on and off"
+            isSimulating = true;
+            if (simulationTimer) clearTimeout(simulationTimer);
+            
+            const btn = document.getElementById('btn-simulate');
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Running...';
+            btn.disabled = true;
+            btn.classList.add("opacity-50");
+            
+            d3.selectAll("button.toggle-btn, input[type='range'], #btn-data-grid, #btn-data-iris")
+              .attr("disabled", true)
+              .style("opacity", 0.5)
+              .style("pointer-events", "none");
+            lucide.createIcons();
+
+            // Clear current tree/regions to start fresh
+            regionsGroup.selectAll("rect").remove();
+            linesGroup.selectAll("line").remove();
+            treeGroup.selectAll("*").remove();
+            document.getElementById('model-accuracy').innerText = "0.0%";
+            document.getElementById('acc-bar').style.width = "0%";
+
+            // Initialize Queue for Level-Order tree building
+            simQueue = [{ 
+                dataSubset: dataset, 
+                depth: 0, 
+                bbox: { xMin: xLimit.min, xMax: xLimit.max, yMin: yLimit.min, yMax: yLimit.max } 
+            }];
+            
+            window.processNextSimNode();
+        };
+
+        window.processNextSimNode = function() {
+            if (simQueue.length === 0) {
+                window.finishSimulation();
+                return;
+            }
+            
+            currentSimNode = simQueue.shift();
+            const { dataSubset, depth, bbox } = currentSimNode;
+            
+            const impurity = calculateImpurity(dataSubset);
+            
+            // Check stopping conditions for this node
+            if (depth >= maxDepth || impurity === 0 || dataSubset.length < 2) {
+                // It's a leaf. Draw it.
+                drawLeaf(dataSubset, bbox);
+                window.processNextSimNode();
+                return;
+            }
+
+            // Generate candidates specifically for this sub-region
+            const candidates = [];
+            ['x', 'y'].forEach(feature => {
+                const sortedVals = [...new Set(dataSubset.map(d => d[feature]))].sort((a,b) => a - b);
+                for (let j = 0; j < sortedVals.length - 1; j++) {
+                    const threshold = (sortedVals[j] + sortedVals[j+1]) / 2;
+                    const leftData = [], rightData = [];
+                    dataSubset.forEach(d => { if(d[feature] <= threshold) leftData.push(d); else rightData.push(d); });
+                    
+                    const leftCounts = {}, rightCounts = {};
+                    leftData.forEach(d => { leftCounts[d.class] = (leftCounts[d.class] || 0) + 1; });
+                    rightData.forEach(d => { rightCounts[d.class] = (rightCounts[d.class] || 0) + 1; });
+
+                    const leftMath = getGiniCalculationString(leftCounts, leftData.length);
+                    const rightMath = getGiniCalculationString(rightCounts, rightData.length);
+                    
+                    const wLeft = leftData.length / dataSubset.length;
+                    const wRight = rightData.length / dataSubset.length;
+                    const weightedImpurity = (wLeft * leftMath.val) + (wRight * rightMath.val);
+                    
+                    candidates.push({ feature, threshold, leftImp: leftMath.val, rightImp: rightMath.val, weightedImpurity, leftData, rightData });
+                }
+            });
+
+            if(candidates.length === 0) {
+                drawLeaf(dataSubset, bbox);
+                window.processNextSimNode();
+                return;
+            }
+
+            // --- Start Visual Scan for this Sub-Region ---
+            const simDash = document.getElementById('sim-dashboard');
+            simDash.classList.remove('hidden');
+            const regionName = depth === 0 ? "Root Dataset" : `Depth ${depth} Sub-Region`;
+            document.getElementById('sim-title').innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Scanning ${regionName}`;
+            lucide.createIcons();
+            
+            const logDiv = document.getElementById('sim-log');
+            logDiv.innerHTML = '';
+            
+            document.getElementById('sim-action-area').innerHTML = `
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="sim-progress" class="h-full bg-blue-500 w-0 transition-all duration-150"></div>
+                </div>
+            `;
+
+            const simLayer = svgPlot.append("g").attr("class", "sim-layer");
+            const leftRegion = simLayer.append("rect").attr("fill", "var(--neon-blue)").attr("opacity", 0.15);
+            const rightRegion = simLayer.append("rect").attr("fill", "var(--emerald)").attr("opacity", 0.15);
+            const scanLine = simLayer.append("line").attr("stroke", "var(--neon-blue)").attr("stroke-width", 2).attr("stroke-dasharray", "6,4");
+            const bestLine = simLayer.append("line").attr("stroke", "var(--lu-gold)").attr("stroke-width", 4).style("opacity", 0.9).style("display", "none");
+
+            let bestWeighted = Infinity;
+            let bestCandidate = null;
+            let i = 0;
+            
+            // Deliberate pacing for teaching purposes
+            const delayMs = currentDataType === 'grid' ? 1200 : Math.max(150, 3000 / candidates.length);
+
+            function step() {
+                if (i >= candidates.length) {
+                    // Done scanning this node
+                    let fName = bestCandidate.feature.toUpperCase();
+                    if (currentDataType === 'grid') fName = bestCandidate.feature === 'x' ? 'X0' : 'X1';
+                    if (currentDataType === 'iris') fName = bestCandidate.feature === 'x' ? 'P.Len' : 'P.Wid';
+                    
+                    let dispThreshold = bestCandidate.threshold;
+
+                    document.getElementById('sim-title').innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Best Split Found`;
+                    lucide.createIcons();
+                    
+                    bestLine.style("display", "block");
+                    if(bestCandidate.feature === 'x') {
+                        bestLine.attr("x1", xScale(bestCandidate.threshold)).attr("x2", xScale(bestCandidate.threshold))
+                                .attr("y1", yScale(bbox.yMin)).attr("y2", yScale(bbox.yMax));
+                    } else {
+                        bestLine.attr("x1", xScale(bbox.xMin)).attr("x2", xScale(bbox.xMax))
+                                .attr("y1", yScale(bestCandidate.threshold)).attr("y2", yScale(bestCandidate.threshold));
+                    }
+
+                    logDiv.innerHTML += `
+                        <div class="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 font-bold text-[11px] leading-relaxed">
+                            <div class="flex items-center gap-1 mb-1"><i data-lucide="trophy" class="w-3 h-3"></i> MINIMUM WGI FOUND</div>
+                            Choosing Split: ${fName} <= ${dispThreshold.toFixed(2)}<br/>
+                            Winning Gini: ${bestCandidate.weightedImpurity.toFixed(3)}
+                        </div>`;
+                    logDiv.scrollTop = logDiv.scrollHeight;
+
+                    scanLine.remove(); leftRegion.remove(); rightRegion.remove();
+
+                    // Draw permanent split line in the real layer
+                    if(bestCandidate.feature === 'x') {
+                        linesGroup.append("line")
+                            .attr("x1", xScale(bestCandidate.threshold)).attr("x2", xScale(bestCandidate.threshold))
+                            .attr("y1", yScale(bbox.yMin)).attr("y2", yScale(bbox.yMax))
+                            .attr("class", "split-line");
+                    } else {
+                        linesGroup.append("line")
+                            .attr("x1", xScale(bbox.xMin)).attr("x2", xScale(bbox.xMax))
+                            .attr("y1", yScale(bestCandidate.threshold)).attr("y2", yScale(bestCandidate.threshold))
+                            .attr("class", "split-line");
+                    }
+
+                    // Enqueue children
+                    let leftBbox, rightBbox;
+                    if (bestCandidate.feature === 'x') {
+                        leftBbox = { ...bbox, xMax: bestCandidate.threshold };
+                        rightBbox = { ...bbox, xMin: bestCandidate.threshold };
+                    } else {
+                        leftBbox = { ...bbox, yMax: bestCandidate.threshold };
+                        rightBbox = { ...bbox, yMin: bestCandidate.threshold };
+                    }
+                    
+                    simQueue.push({ dataSubset: bestCandidate.leftData, depth: depth + 1, bbox: leftBbox });
+                    simQueue.push({ dataSubset: bestCandidate.rightData, depth: depth + 1, bbox: rightBbox });
+
+                    // Require manual click to proceed to next node or finish
+                    const isLastNodeInQueue = simQueue.length === 0;
+                    const btnText = isLastNodeInQueue ? "Finish Simulation" : "Apply Split & Continue";
+                    
+                    document.getElementById('sim-action-area').innerHTML = `
+                        <button onclick="window.continueSimulation()" class="w-full py-2.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:text-emerald-300 border border-emerald-500/50 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i> ${btnText}
+                        </button>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                const c = candidates[i];
+                
+                // Draw scan line & highlighted regions bound by the current BBOX
+                if(c.feature === 'x') {
+                    scanLine.attr("x1", xScale(c.threshold)).attr("x2", xScale(c.threshold))
+                            .attr("y1", yScale(bbox.yMin)).attr("y2", yScale(bbox.yMax));
+                            
+                    leftRegion.attr("x", xScale(bbox.xMin))
+                              .attr("y", yScale(bbox.yMax))
+                              .attr("width", Math.max(0, xScale(c.threshold) - xScale(bbox.xMin)))
+                              .attr("height", Math.max(0, yScale(bbox.yMin) - yScale(bbox.yMax)));
+                              
+                    rightRegion.attr("x", xScale(c.threshold))
+                               .attr("y", yScale(bbox.yMax))
+                               .attr("width", Math.max(0, xScale(bbox.xMax) - xScale(c.threshold)))
+                               .attr("height", Math.max(0, Math.abs(yScale(bbox.yMin) - yScale(bbox.yMax))));
+                } else {
+                    scanLine.attr("x1", xScale(bbox.xMin)).attr("x2", xScale(bbox.xMax))
+                            .attr("y1", yScale(c.threshold)).attr("y2", yScale(c.threshold));
+                            
+                    // Y axis is inverted. yScale(c.threshold) is lower visually than yScale(bbox.yMax)
+                    leftRegion.attr("x", xScale(bbox.xMin))
+                              .attr("y", yScale(c.threshold))
+                              .attr("width", Math.max(0, xScale(bbox.xMax) - xScale(bbox.xMin)))
+                              .attr("height", Math.max(0, Math.abs(yScale(bbox.yMin) - yScale(c.threshold))));
+                              
+                    rightRegion.attr("x", xScale(bbox.xMin))
+                               .attr("y", yScale(bbox.yMax))
+                               .attr("width", Math.max(0, xScale(bbox.xMax) - xScale(bbox.xMin)))
+                               .attr("height", Math.max(0, Math.abs(yScale(c.threshold) - yScale(bbox.yMax))));
+                }
+
+                // Format values for UI
+                let fName = c.feature.toUpperCase();
+                if (currentDataType === 'grid') fName = c.feature === 'x' ? 'X0' : 'X1';
+                if (currentDataType === 'iris') fName = c.feature === 'x' ? 'P.Len' : 'P.Wid';
+                
+                let dispThreshold = c.threshold;
+
+                // Update HUD Top Stats
+                document.getElementById('sim-test').innerText = `${fName} <= ${dispThreshold.toFixed(2)}`;
+                document.getElementById('sim-weighted').innerText = c.weightedImpurity.toFixed(3);
+                
+                // Check if this is the best so far
+                if (c.weightedImpurity < bestWeighted) {
+                    bestWeighted = c.weightedImpurity;
+                    bestCandidate = c;
+                    document.getElementById('sim-best-display').innerText = `Min WGI: ${bestWeighted.toFixed(3)}`;
+                }
+                
+                // Append detailed step to Log matching the lesson's explanation style
+                logDiv.innerHTML += `
+                    <div class="py-2 border-b border-slate-800/50">
+                        <div class="text-blue-400 font-bold mb-0.5">Test: ${fName} <= ${dispThreshold.toFixed(2)}</div>
+                        <div class="flex justify-between opacity-70">
+                            <span>L-Gini: ${c.leftImp.toFixed(3)}</span>
+                            <span>R-Gini: ${c.rightImp.toFixed(3)}</span>
+                        </div>
+                        <div class="text-orange-400 mt-0.5">WGI = ${c.weightedImpurity.toFixed(3)}</div>
+                    </div>
+                `;
+                logDiv.scrollTop = logDiv.scrollHeight; // Auto-scroll to bottom
+
+                document.getElementById('sim-progress').style.width = `${((i + 1) / candidates.length) * 100}%`;
+
+                i++;
+                simulationTimer = setTimeout(step, delayMs);
+            }
+
+            step();
+        };
+
+        window.continueSimulation = function() {
+            const simLayer = svgPlot.select(".sim-layer");
+            if(simLayer) simLayer.remove();
+            window.processNextSimNode();
+        };
+
+        window.finishSimulation = function() {
+            const simDash = document.getElementById('sim-dashboard');
+            simDash.classList.add('hidden');
+            
+            const simLayer = svgPlot.select(".sim-layer");
+            if(simLayer) simLayer.remove();
+            
+            isSimulating = false;
+            
+            // Re-enable UI
+            const btn = document.getElementById('btn-simulate');
+            btn.innerHTML = '<i data-lucide="git-pull-request" class="w-4 h-4"></i> Simulate Tree Growth';
+            btn.disabled = false;
+            btn.classList.remove("opacity-50");
+            
+            d3.selectAll("button.toggle-btn, input[type='range'], #btn-data-grid, #btn-data-iris")
+              .attr("disabled", null)
+              .style("opacity", 1)
+              .style("pointer-events", "auto");
+              
+            lucide.createIcons();
+            buildAndUpdate(); // Final render
+        }
+
+        // --- EDUCATIONAL CONTENT DICTIONARY ---
+        const educationalInfo = {
+            accuracy: {
+                title: "Model Accuracy",
+                def: "The percentage of training data points correctly classified by the current tree structure.",
+                form: "(Total Correct Predictions) / (Total Samples) × 100",
+                interp: "Notice how increasing the Max Depth slider usually increases accuracy. However, achieving 100% training accuracy often means the tree has memorized the data (Overfitting) and might fail on new, unseen data!"
+            },
+            impurity: {
+                title: "Gini Impurity Metric",
+                def: "A measure of how 'mixed' a group of data points is. The root node begins with a high impurity because it contains all classes. A node is 100% pure (impurity = 0) if all its samples belong to the same class.",
+                form: "Gini = 1 - ∑(pᵢ²)",
+                interp: "The Decision Tree applies a divide-and-conquer strategy to lower this number. If it splits a mixed node into two perfect child nodes, the impurity drops to 0!"
+            },
+            infogain: {
+                title: "Weighted Gini Impurity (WGI)",
+                def: "To find the best split, the algorithm computes midpoints between consecutive values. It then tests each midpoint by splitting the data and calculating the Weighted Gini Impurity of the two resulting children.",
+                form: "WGI = (n_left / n_total) * Gini_left + (n_right / n_total) * Gini_right",
+                interp: "The smallest WGI determines how the node is split. The tree is 'greedy'—it only looks for the best immediate split. Try the 'Simulate Tree Growth' button to physically watch this calculation happen recursively!"
+            },
+            depth: {
+                title: "Max Depth (Stopping Criteria)",
+                def: "The algorithm stops splitting if all child nodes have Gini=0, OR if the tree reaches the MaxDepth set by the user.",
+                form: "Hyperparameter",
+                interp: "Setting Max Depth = 1 creates a single root split (a 'stump'). If Depth is too high, the tree will carve out tiny boxes for single data points, leading to OVERFITTING."
+            }
+        };
+
+        // --- UI / MODAL LOGIC ---
+        window.openModal = function(type) {
+            const info = educationalInfo[type];
+            if(!info) return;
+            document.getElementById('modal-title').innerText = info.title;
+            document.getElementById('modal-def').innerText = info.def;
+            document.getElementById('modal-form').innerHTML = info.form;
+            document.getElementById('modal-interp').innerText = info.interp;
+
+            const modal = document.getElementById('metric-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('modal-content-box').classList.remove('scale-95');
+            }, 10);
+        }
+
+        window.closeModal = function() {
+            const modal = document.getElementById('metric-modal');
+            modal.classList.add('opacity-0');
+            document.getElementById('modal-content-box').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
+        }
+        document.getElementById('metric-modal').addEventListener('click', function(e) {
+            if(e.target === this) window.closeModal();
+        });
+
+        window.setMetric = function(m) {
+            metric = m;
+            document.getElementById('btn-gini').classList.toggle('active', m === 'gini');
+            document.getElementById('btn-entropy').classList.toggle('active', m === 'entropy');
+            document.getElementById('dist-name').innerText = m === 'gini' ? "Gini Index" : "Entropy";
+            buildAndUpdate();
+        }
+
+        // --- INIT & SETUP ---
+        function init() {
+            lucide.createIcons();
+            
+            // Setup Plot (Feature Space)
+            const plotContainer = document.getElementById('main-plot');
+            pWidth = plotContainer.clientWidth;
+            pHeight = plotContainer.clientHeight;
+            const pPad = {top: 15, right: 15, bottom: 40, left: 40}; 
+            
+            svgPlot = d3.select("#main-plot").append("svg").attr("width", "100%").attr("height", "100%");
+            
+            xScale = d3.scaleLinear().range([pPad.left, pWidth - pPad.right]);
+            yScale = d3.scaleLinear().range([pHeight - pPad.bottom, pPad.top]);
+
+            // Draw Coordinate Axes Groups
+            svgPlot.append("g").attr("class", "x-axis axis-label opacity-50").attr("transform", `translate(0, ${pHeight - pPad.bottom})`);
+            svgPlot.append("g").attr("class", "y-axis axis-label opacity-50").attr("transform", `translate(${pPad.left}, 0)`);
+
+            // Dynamic Axis Titles
+            xAxisTitle = svgPlot.append("text")
+                .attr("x", pWidth / 2)
+                .attr("y", pHeight - 5)
+                .attr("text-anchor", "middle")
+                .attr("class", "axis-label opacity-80");
+            
+            yAxisTitle = svgPlot.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -pHeight / 2)
+                .attr("y", 12)
+                .attr("text-anchor", "middle")
+                .attr("class", "axis-label opacity-80");
+
+            regionsGroup = svgPlot.append("g");
+            linesGroup = svgPlot.append("g");
+            pointsGroup = svgPlot.append("g");
+
+            // Setup Draggable Simulation Dashboard
+            const simDash = document.getElementById('sim-dashboard');
+            const dragHandle = document.getElementById('sim-drag-handle');
+            let isDraggingDash = false, dashStartX, dashStartY, mouseStartX, mouseStartY;
+
+            dragHandle.addEventListener('mousedown', (e) => {
+                isDraggingDash = true;
+                mouseStartX = e.clientX; mouseStartY = e.clientY;
+                dashStartX = simDash.offsetLeft; dashStartY = simDash.offsetTop;
+                document.body.style.userSelect = 'none'; 
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDraggingDash) return;
+                simDash.style.left = `${dashStartX + (e.clientX - mouseStartX)}px`;
+                simDash.style.top = `${dashStartY + (e.clientY - mouseStartY)}px`;
+            });
+            window.addEventListener('mouseup', () => { isDraggingDash = false; document.body.style.userSelect = ''; });
+
+            // Setup Tree Diagram Area with Zoom/Pan
+            const treeContainer = document.getElementById('tree-plot');
+            tWidth = treeContainer.clientWidth;
+            tHeight = treeContainer.clientHeight;
+            
+            svgTree = d3.select("#tree-plot").append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%");
+                
+            svgTree.append("rect")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("fill", "transparent");
+                
+            treeGroup = svgTree.append("g").attr("transform", "translate(0, 30)");
+
+            treeZoom = d3.zoom().scaleExtent([0.2, 4]).on("zoom", (e) => {
+                treeGroup.attr("transform", `translate(${e.transform.x}, ${e.transform.y + 30}) scale(${e.transform.k})`);
+            });
+            svgTree.call(treeZoom);
+
+            document.getElementById('depth-slider').addEventListener('input', (e) => { 
+                maxDepth = parseInt(e.target.value); 
+                document.getElementById('depth-val').innerText = maxDepth;
+                buildAndUpdate(); 
+            });
+
+            window.generateData('grid'); // Default
+        }
+
+        // --- DATA GENERATION ---
+        window.generateData = function(type) {
+            if (isSimulating) return;
+            dataset = [];
+            currentDataType = type;
+            
+            ['grid', 'iris'].forEach(t => {
+                const btn = document.getElementById(`btn-data-${t}`);
+                if (!btn) return;
+                if(t === type) btn.className = `px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all bg-white/10 text-white ${t === 'iris' ? 'border border-blue-500/50' : 'border border-purple-500/50'}`;
+                else btn.className = `px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-slate-400 hover:bg-white/5 ${t === 'iris' ? 'border border-blue-500/30 text-blue-400' : 'border border-purple-500/30 text-purple-400'}`;
+            });
+
+            if (type === 'grid') {
+                xAxisTitle.text("Feature X0");
+                yAxisTitle.text("Feature X1");
+
+                xLimit = {min: 0.5, max: 4.5};
+                yLimit = {min: 0.5, max: 3.5};
+                xScale.domain([xLimit.min, xLimit.max]);
+                yScale.domain([yLimit.min, yLimit.max]);
+
+                // The provided data: X0={1,2,3,4}, X1={1,2,3}
+                const gridX = [[1,1],[1,2],[1,3],[2,1],[2,2],[2,3],[3,1],[3,2],[3,3],[4,1],[4,2],[4,3]];
+                const gridY = [0,0,0, 0,0,2, 1,2,2, 2,1,1];
+
+                for (let i = 0; i < gridX.length; i++) {
+                    dataset.push({ id: `grid_${i}`, class: gridY[i], x: gridX[i][0], y: gridX[i][1] });
+                }
+                
+                maxDepth = 1;
+                document.getElementById('depth-slider').value = 1;
+                document.getElementById('depth-val').innerText = 1;
+
+            } else if (type === 'iris') {
+                xAxisTitle.text("Petal Length (cm)");
+                yAxisTitle.text("Petal Width (cm)");
+                
+                xLimit = {min: 0, max: 8};
+                yLimit = {min: 0, max: 3};
+                xScale.domain([xLimit.min, xLimit.max]);
+                yScale.domain([yLimit.min, yLimit.max]);
+
+                const irisSamples = [
+                    {x:1.4, y:0.2, c:0}, {x:1.4, y:0.2, c:0}, {x:1.3, y:0.2, c:0}, {x:1.5, y:0.2, c:0}, {x:1.4, y:0.2, c:0}, {x:1.7, y:0.4, c:0}, {x:1.4, y:0.3, c:0}, {x:1.5, y:0.2, c:0}, {x:1.4, y:0.2, c:0}, {x:1.5, y:0.1, c:0}, {x:1.5, y:0.2, c:0}, {x:1.6, y:0.2, c:0}, {x:1.4, y:0.1, c:0}, {x:1.1, y:0.1, c:0}, {x:1.2, y:0.2, c:0}, {x:1.5, y:0.4, c:0}, {x:1.3, y:0.4, c:0}, {x:1.4, y:0.3, c:0}, {x:1.7, y:0.3, c:0}, {x:1.5, y:0.3, c:0}, {x:1.7, y:0.2, c:0}, {x:1.5, y:0.4, c:0}, {x:1.0, y:0.2, c:0}, {x:1.7, y:0.5, c:0}, {x:1.9, y:0.2, c:0}, {x:1.6, y:0.2, c:0}, {x:1.6, y:0.4, c:0}, {x:1.5, y:0.2, c:0}, {x:1.4, y:0.2, c:0}, {x:1.6, y:0.2, c:0}, {x:1.6, y:0.2, c:0}, {x:1.5, y:0.4, c:0}, {x:1.5, y:0.1, c:0}, {x:1.4, y:0.2, c:0}, {x:1.5, y:0.2, c:0}, {x:1.2, y:0.2, c:0}, {x:1.3, y:0.2, c:0}, {x:1.4, y:0.1, c:0}, {x:1.3, y:0.2, c:0}, {x:1.5, y:0.2, c:0}, {x:1.3, y:0.3, c:0}, {x:1.3, y:0.3, c:0}, {x:1.3, y:0.2, c:0}, {x:1.6, y:0.6, c:0}, {x:1.9, y:0.4, c:0}, {x:1.4, y:0.3, c:0}, {x:1.6, y:0.2, c:0}, {x:1.4, y:0.2, c:0}, {x:1.5, y:0.2, c:0}, {x:1.4, y:0.2, c:0},
+                    {x:4.7, y:1.4, c:1}, {x:4.5, y:1.5, c:1}, {x:4.9, y:1.5, c:1}, {x:4.0, y:1.3, c:1}, {x:4.6, y:1.5, c:1}, {x:4.5, y:1.3, c:1}, {x:4.7, y:1.6, c:1}, {x:3.3, y:1.0, c:1}, {x:4.6, y:1.3, c:1}, {x:3.9, y:1.4, c:1}, {x:3.5, y:1.0, c:1}, {x:4.2, y:1.5, c:1}, {x:4.0, y:1.0, c:1}, {x:4.7, y:1.4, c:1}, {x:3.6, y:1.3, c:1}, {x:4.4, y:1.4, c:1}, {x:4.5, y:1.5, c:1}, {x:4.1, y:1.0, c:1}, {x:4.5, y:1.5, c:1}, {x:3.9, y:1.1, c:1}, {x:4.8, y:1.8, c:1}, {x:4.0, y:1.3, c:1}, {x:4.9, y:1.5, c:1}, {x:4.7, y:1.2, c:1}, {x:4.3, y:1.3, c:1}, {x:4.4, y:1.4, c:1}, {x:4.8, y:1.4, c:1}, {x:5.0, y:1.7, c:1}, {x:4.5, y:1.5, c:1}, {x:3.5, y:1.0, c:1}, {x:3.8, y:1.1, c:1}, {x:3.7, y:1.0, c:1}, {x:3.9, y:1.2, c:1}, {x:5.1, y:1.6, c:1}, {x:4.5, y:1.5, c:1}, {x:4.5, y:1.6, c:1}, {x:4.7, y:1.5, c:1}, {x:4.4, y:1.3, c:1}, {x:4.1, y:1.3, c:1}, {x:4.0, y:1.3, c:1}, {x:4.4, y:1.2, c:1}, {x:4.6, y:1.4, c:1}, {x:4.0, y:1.2, c:1}, {x:3.3, y:1.0, c:1}, {x:4.2, y:1.3, c:1}, {x:4.2, y:1.2, c:1}, {x:4.2, y:1.3, c:1}, {x:4.3, y:1.3, c:1}, {x:3.0, y:1.1, c:1}, {x:4.1, y:1.3, c:1},
+                    {x:6.0, y:2.5, c:2}, {x:5.1, y:1.9, c:2}, {x:5.9, y:2.1, c:2}, {x:5.6, y:1.8, c:2}, {x:5.8, y:2.2, c:2}, {x:6.6, y:2.1, c:2}, {x:4.5, y:1.7, c:2}, {x:6.3, y:1.8, c:2}, {x:5.8, y:1.8, c:2}, {x:6.1, y:2.5, c:2}, {x:5.1, y:2.0, c:2}, {x:5.3, y:1.9, c:2}, {x:5.5, y:2.1, c:2}, {x:5.0, y:2.0, c:2}, {x:5.1, y:2.4, c:2}, {x:5.3, y:2.3, c:2}, {x:5.5, y:1.8, c:2}, {x:6.7, y:2.2, c:2}, {x:6.9, y:2.3, c:2}, {x:5.0, y:1.5, c:2}, {x:5.7, y:2.3, c:2}, {x:4.9, y:2.0, c:2}, {x:6.7, y:2.0, c:2}, {x:4.9, y:1.8, c:2}, {x:5.7, y:2.1, c:2}, {x:6.0, y:1.8, c:2}, {x:4.8, y:1.8, c:2}, {x:4.9, y:1.8, c:2}, {x:5.6, y:2.1, c:2}, {x:5.8, y:1.6, c:2}, {x:6.1, y:1.9, c:2}, {x:6.4, y:2.0, c:2}, {x:5.6, y:2.2, c:2}, {x:5.1, y:1.5, c:2}, {x:5.6, y:1.4, c:2}, {x:6.1, y:2.3, c:2}, {x:5.6, y:2.4, c:2}, {x:5.5, y:1.8, c:2}, {x:4.8, y:1.8, c:2}, {x:5.4, y:2.1, c:2}, {x:5.6, y:2.4, c:2}, {x:5.1, y:2.3, c:2}, {x:5.1, y:1.9, c:2}, {x:5.9, y:2.3, c:2}, {x:5.7, y:2.5, c:2}, {x:5.2, y:2.3, c:2}, {x:5.0, y:1.9, c:2}, {x:5.2, y:2.0, c:2}, {x:5.4, y:2.3, c:2}, {x:5.1, y:1.8, c:2}
+                ];
+
+                irisSamples.forEach((d, i) => { dataset.push({ id: `iris_${i}`, class: d.c, x: d.x, y: d.y }); });
+
+                maxDepth = 3;
+                document.getElementById('depth-slider').value = 3;
+                document.getElementById('depth-val').innerText = 3;
+            }
+
+            svgPlot.select(".x-axis").transition().duration(500).call(d3.axisBottom(xScale).ticks(10));
+            svgPlot.select(".y-axis").transition().duration(500).call(d3.axisLeft(yScale).ticks(10));
+
+            renderPoints();
+            buildAndUpdate();
+            if(svgTree) svgTree.transition().duration(500).call(treeZoom.transform, d3.zoomIdentity);
+        }
+
+        function renderPoints() {
+            const circles = pointsGroup.selectAll(".data-point").data(dataset, d => d.id);
+            
+            const circlesEnter = circles.enter().append("circle")
+                .attr("class", d => `data-point class-${d.class}`)
+                .attr("r", 5)
+                .on("mouseover", (event, d) => {
+                    if (isSimulating) return;
+                    const t = document.getElementById('point-tooltip');
+                    
+                    let xName = currentDataType === 'grid' ? 'X0' : (currentDataType === 'iris' ? 'Petal Length' : 'X');
+                    let yName = currentDataType === 'grid' ? 'X1' : (currentDataType === 'iris' ? 'Petal Width' : 'Y');
+                    
+                    let cName;
+                    if (currentDataType === 'iris') {
+                        cName = d.class === 0 ? 'Setosa' : d.class === 1 ? 'Versicolor' : 'Virginica';
+                    } else if (currentDataType === 'grid') {
+                        cName = `Class ${d.class}`;
+                    } else {
+                        cName = classNames[d.class];
+                    }
+
+                    if(d.tooltipData) {
+                        t.innerHTML = d.tooltipData;
+                    } else {
+                        t.innerHTML = `<strong>Data Point</strong><br/><span style="color:#94a3b8">${xName}: ${d.x.toFixed(1)}, ${yName}: ${d.y.toFixed(1)}</span><br/><span style="color:${classColors[d.class]}">Species/Class: ${cName}</span>`;
+                    }
+                    t.style.display = 'block'; t.style.left = (event.pageX + 15) + 'px'; t.style.top = (event.pageY - 40) + 'px';
+                })
+                .on("mousemove", (event) => {
+                    const t = document.getElementById('point-tooltip');
+                    t.style.left = (event.pageX + 15) + 'px'; t.style.top = (event.pageY - 40) + 'px';
+                })
+                .on("mouseout", () => {
+                    document.getElementById('point-tooltip').style.display = 'none';
+                });
+                
+            circles.exit().remove();
+            circles.merge(circlesEnter).attr("cx", d => xScale(d.x)).attr("cy", d => yScale(d.y));
+        }
+
+        function buildAndUpdate() {
+            if (isSimulating) return; 
+
+            if (dataset.length === 0) {
+                regionsGroup.selectAll("rect").remove();
+                linesGroup.selectAll("line").remove();
+                treeGroup.selectAll("*").remove();
+                document.getElementById('model-accuracy').innerText = "0.0%";
+                document.getElementById('acc-bar').style.width = "0%";
+                return;
+            }
+
+            const initialBbox = { xMin: xLimit.min, xMax: xLimit.max, yMin: yLimit.min, yMax: yLimit.max };
+            treeModel = buildTree(dataset, 0, initialBbox);
+            const { leaves, lines } = extractVisuals(treeModel);
+            
+            const correctPredictions = leaves.reduce((sum, leaf) => sum + (leaf.counts[leaf.majorityClass] || 0), 0);
+            const accuracy = (correctPredictions / dataset.length) * 100;
+            document.getElementById('model-accuracy').innerText = `${accuracy.toFixed(1)}%`;
+            document.getElementById('acc-bar').style.width = `${accuracy}%`;
+
+            const rects = regionsGroup.selectAll("rect").data(leaves);
+            rects.enter().append("rect").attr("class", "region-rect")
+                .merge(rects)
+                .attr("x", d => xScale(d.bbox.xMin))
+                .attr("y", d => yScale(d.bbox.yMax))
+                .attr("width", d => Math.max(0, xScale(d.bbox.xMax) - xScale(d.bbox.xMin)))
+                .attr("height", d => Math.max(0, Math.abs(yScale(d.bbox.yMin) - yScale(d.bbox.yMax))))
+                .attr("fill", d => classColors[d.majorityClass])
+                .attr("opacity", 0.2)
+                .on("mouseover", (event, d) => {
+                    if (isSimulating) return;
+                    const t = document.getElementById('region-tooltip');
+                    let countsHtml = '';
+                    for (let c = 0; c < numActiveClasses; c++) {
+                        let cLabel = currentDataType === 'iris' 
+                                     ? (c === 0 ? 'Setosa' : c === 1 ? 'Versicolor' : 'Virginica')
+                                     : `Class ${c}`;
+                        countsHtml += `<div style="color:${classColors[c]}">${cLabel}: ${d.counts[c] || 0}</div>`;
+                    }
+
+                    t.innerHTML = `
+                        <div style="margin-bottom:4px; border-bottom:1px solid #334155; padding-bottom:4px; color:var(--lu-gold);"><strong>Leaf Node Stats</strong></div>
+                        <div style="color: white; font-weight: bold; margin-bottom: 4px;">Total Samples: ${d.samples}</div>
+                        ${countsHtml}
+                        <div style="margin-top:6px; border-top:1px dashed #334155; padding-top:4px;">
+                            <strong>${metric === 'gini' ? 'Gini' : 'Entropy'}: ${d.impurity.toFixed(3)}</strong>
+                        </div>
+                    `;
+                    t.style.display = 'block';
+                    t.style.left = (event.pageX + 15) + 'px';
+                    t.style.top = (event.pageY - 40) + 'px';
+                })
+                .on("mousemove", (event) => {
+                    const t = document.getElementById('region-tooltip');
+                    t.style.left = (event.pageX + 15) + 'px';
+                    t.style.top = (event.pageY - 40) + 'px';
+                })
+                .on("mouseout", () => document.getElementById('region-tooltip').style.display = 'none');
+            rects.exit().remove();
+
+            const splitLines = linesGroup.selectAll("line").data(lines);
+            splitLines.enter().append("line").attr("class", "split-line")
+                .merge(splitLines)
+                .attr("x1", d => xScale(d.x1)).attr("y1", d => yScale(d.y1))
+                .attr("x2", d => xScale(d.x2)).attr("y2", d => yScale(d.y2));
+            splitLines.exit().remove();
+
+            drawTreeDiagram(treeModel);
+        }
+
+        function drawTreeDiagram(rootData) {
+            treeGroup.selectAll("*").remove();
+            if (!rootData) return;
+
+            const root = d3.hierarchy(rootData);
+            const nodeWidth = 110, nodeHeight = 85;
+            
+            const layoutWidth = Math.max(tWidth, Math.pow(2, maxDepth) * (nodeWidth + 20));
+            const layoutHeight = Math.max(tHeight - 40, (maxDepth + 1) * (nodeHeight + 30));
+            
+            const treeLayout = d3.tree().size([layoutWidth - 40, layoutHeight - 60]);
+            treeLayout(root);
+
+            const xOffset = layoutWidth < tWidth ? (tWidth - layoutWidth) / 2 : 20;
+            const g = treeGroup.append("g").attr("transform", `translate(${xOffset}, 40)`);
+
+            const linkGen = d3.linkVertical().source(d => [d.source.x, d.source.y + nodeHeight/2]).target(d => [d.target.x, d.target.y - nodeHeight/2]);
+
+            g.selectAll(".link").data(root.links()).enter().append("path").attr("class", "link").attr("d", linkGen).style("fill", "none").style("stroke", "#475569").style("stroke-width", "1.5px");
+
+            const nodeGroup = g.selectAll(".node").data(root.descendants()).enter().append("g").attr("transform", d => `translate(${d.x},${d.y})`);
+
+            // Exact Sklearn Coloring Logic
+            nodeGroup.append("rect")
+                .attr("width", nodeWidth)
+                .attr("height", nodeHeight)
+                .attr("x", -nodeWidth/2)
+                .attr("y", -nodeHeight/2)
+                .attr("rx", 6)
+                .attr("ry", 6)
+                .style("fill", d => {
+                    const baseColor = classColors[d.data.majorityClass];
+                    const maxImpurity = 1 - (1/numActiveClasses); 
+                    const purity = maxImpurity === 0 ? 1 : 1 - (d.data.impurity / maxImpurity);
+                    return d3.interpolate("#ffffff", baseColor)(Math.max(0, purity));
+                })
+                .style("stroke", "#0f172a")
+                .style("stroke-width", "1px");
+
+            nodeGroup.each(function(d) {
+                const el = d3.select(this);
+                let yOffset = -nodeHeight/2 + 16;
+                const lineHeight = 13;
+
+                if (!d.data.isLeaf) {
+                    let fName = d.data.feature.toUpperCase();
+                    if (currentDataType === 'grid') fName = d.data.feature === 'x' ? 'X0' : 'X1';
+                    if (currentDataType === 'iris') fName = d.data.feature === 'x' ? 'P.Len' : 'P.Wid';
+                    
+                    el.append("text").attr("y", yOffset).text(`${fName} <= ${d.data.threshold.toFixed(3)}`)
+                      .attr("text-anchor", "middle").style("font-size", "10px").style("font-family", "monospace").style("font-weight", "bold").style("fill", "#0f172a");
+                    yOffset += lineHeight;
+                }
+
+                const metricName = metric === 'gini' ? 'gini' : 'entropy';
+                el.append("text").attr("y", yOffset).text(`${metricName} = ${d.data.impurity.toFixed(3)}`)
+                  .attr("text-anchor", "middle").style("font-size", "10px").style("font-family", "monospace").style("fill", "#0f172a");
+                yOffset += lineHeight;
+
+                el.append("text").attr("y", yOffset).text(`samples = ${d.data.samples}`)
+                  .attr("text-anchor", "middle").style("font-size", "10px").style("font-family", "monospace").style("fill", "#0f172a");
+                yOffset += lineHeight;
+
+                let arr = [];
+                for(let i=0; i<numActiveClasses; i++) arr.push(d.data.counts[i] || 0);
+                el.append("text").attr("y", yOffset).text(`value = [${arr.join(', ')}]`)
+                  .attr("text-anchor", "middle").style("font-size", "10px").style("font-family", "monospace").style("fill", "#0f172a");
+                yOffset += lineHeight;
+
+                let cName = currentDataType === 'iris' 
+                              ? (d.data.majorityClass === 0 ? 'setosa' : d.data.majorityClass === 1 ? 'versicolor' : 'virginica') 
+                              : `class ${d.data.majorityClass}`;
+                el.append("text").attr("y", yOffset).text(`class = ${cName}`)
+                  .attr("text-anchor", "middle").style("font-size", "10px").style("font-family", "monospace").style("font-weight", "bold").style("fill", "#0f172a");
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
